@@ -13,7 +13,7 @@ import highlightRouter from "./routes/highlight.route.js";
 import errorHandler from "./middleware/error.middleware.js";
 
 const app = express();
-
+//is error here?
 app.use(
   cors({
     origin: process.env.ALLOWED_ORIGINS.split(","),
