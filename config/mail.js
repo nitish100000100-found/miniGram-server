@@ -1,14 +1,30 @@
-import axios from "axios";
-
+import dotenv from "dotenv";
+dotenv.config();
 
 const sendEmail = async (to) => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const emailUser =
+    process.env.EMAIL_USER?.trim() || process.env.BREVO_EMAIL?.trim();
+  const brevoApiKey =
+    process.env.BREVO_API_KEY?.trim() || process.env.BREVO_SMTP_KEY?.trim();
+
+  if (!emailUser || !brevoApiKey) {
+    console.error(
+      "Brevo credentials missing: EMAIL_USER/BREVO_EMAIL or BREVO_API_KEY/BREVO_SMTP_KEY is not defined.",
+    );
+    return null;
+  }
 
   try {
-    await axios.post(
-      "https://api.brevo.com/v3/smtp/email",
-      {
-        sender: { name: "miniGram", email: process.env.BREVO_EMAIL },
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "api-key": brevoApiKey,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        sender: { name: "miniGram", email: emailUser },
         to: [{ email: to }],
         subject: "Verify Your Email - miniGram",
         htmlContent: `
@@ -20,21 +36,24 @@ const sendEmail = async (to) => {
             </div>
             <p style="color:#dc2626;font-weight:bold;">OTP expires in 5 minutes</p>
             <p style="color:#6b7280;font-size:14px;">Do not share this code with anyone.</p>
+            <hr style="margin:25px 0;">
+            <p style="font-size:12px;color:#9ca3af;">© ${new Date().getFullYear()} miniGram</p>
           </div>
         `,
-      },
-      {
-        headers: {
-          "api-key": process.env.BREVO_API_KEY,
-          "content-type": "application/json",
-        },
-      }
-    );
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("Brevo API error:", data);
+      return null;
+    }
 
     console.log(`OTP sent to ${to}`);
     return otp;
   } catch (err) {
-    console.error("Brevo error:", err.response?.data || err.message);
+    console.error("Brevo error:", err.message);
     return null;
   }
 };
