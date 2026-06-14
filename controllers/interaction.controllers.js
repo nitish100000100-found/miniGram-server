@@ -870,7 +870,7 @@ const getWhoLikedPost = async (req, res) => {
         stories: u.stories || [],
       }));
 
-    return res.status(200).json({ users: filteredUsers, following: me.following || [] });
+    return res.status(200).json({ users: filteredUsers });
   } catch (error) {
     return res
       .status(500)
