@@ -684,7 +684,7 @@ const getFollowing = async (req, res) => {
       username: user.username,
       following: filteredFollowing,
       currentUserId: req.userId,
-      following: currentUser.following || [],
+      currentUserFollowing: currentUser.following || [],
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
