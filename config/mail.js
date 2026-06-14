@@ -8,6 +8,13 @@ const transporter = nodemailer.createTransport({
     pass: process.env.BREVO_SMTP_KEY,
   },
 });
+transporter.verify((error, success) => {
+  if (error) {
+    console.error("❌ Mail server connection failed:", error);
+  } else {
+    console.log("✅ Mail server ready");
+  }
+});
 
 const sendEmail = async (to) => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
