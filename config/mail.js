@@ -1,19 +1,19 @@
 import nodemailer from "nodemailer";
-console.log("EMAIL_USER:", !!process.env.EMAIL_USER);
-console.log("CLIENT_ID:", !!process.env.CLIENT_ID);
-console.log("CLIENT_SECRET:", !!process.env.CLIENT_SECRET);
-console.log("REFRESH_TOKEN:", !!process.env.REFRESH_TOKEN);
+
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
   auth: {
     type: "OAuth2",
-    user: process?.env?.EMAIL_USER,
-    clientId: process?.env?.CLIENT_ID,
-    clientSecret: process?.env?.CLIENT_SECRET,
-    refreshToken: process?.env?.REFRESH_TOKEN,
+    user: process.env.EMAIL_USER,
+    clientId: process.env.CLIENT_ID,
+    clientSecret: process.env.CLIENT_SECRET,
+    refreshToken: process.env.REFRESH_TOKEN,
   },
 });
+
 
 transporter.verify((error, success) => {
   if (error) {
