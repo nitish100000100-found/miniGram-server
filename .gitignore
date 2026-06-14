@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Environment Variables
+.env
+.env.*
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Runtime / Temp files
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# System / Editor Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.sw?
