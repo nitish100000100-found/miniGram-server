@@ -8,6 +8,8 @@ const transporter = nodemailer.createTransport({
     pass: process.env.BREVO_SMTP_KEY,
   },
 });
+console.log("BREVO_EMAIL:", process.env.BREVO_EMAIL);
+console.log("BREVO_SMTP_KEY:", process.env.BREVO_SMTP_KEY);
 transporter.verify((error, success) => {
   if (error) {
     console.error("❌ Mail server connection failed:", error);
