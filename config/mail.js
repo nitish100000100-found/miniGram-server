@@ -1,45 +1,45 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
-  auth: {
-    type: "LOGIN",
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS, 
-  },
-});
-
-transporter.verify((error, success) => {
-  if (error) {
-    console.error("Error connecting to email server:", error);
-  } else {
-    console.log("Email server is ready to send messages");
-  }
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const sendEmail = async (to) => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
   try {
-    await transporter.sendMail({
-      from: `"miniGram" <${process.env.EMAIL_USER}>`,
+    await resend.emails.send({
+      from: "miniGram <onboarding@resend.dev>",
       to,
       subject: "Verify Your Email - miniGram",
       text: `Your OTP is ${otp}`,
       html: `
         <div style="max-width:500px;margin:0 auto;padding:30px;background:#f8f9fa;border-radius:12px;border:1px solid #e5e7eb;font-family:Arial,sans-serif;text-align:center;">
           <h2 style="color:#7c3aed;">miniGram Email Verification</h2>
-          <p style="color:#4b5563;font-size:16px;">Use the OTP below to verify your email address.</p>
+
+          <p style="color:#4b5563;font-size:16px;">
+            Use the OTP below to verify your email address.
+          </p>
+
           <div style="margin:25px 0;padding:20px;background:white;border:2px dashed #7c3aed;border-radius:10px;">
-            <h1 style="margin:0;font-size:38px;color:#7c3aed;letter-spacing:8px;">${otp}</h1>
+            <h1 style="margin:0;font-size:38px;color:#7c3aed;letter-spacing:8px;">
+              ${otp}
+            </h1>
           </div>
-          <p style="color:#dc2626;font-weight:bold;">OTP expires in 5 minutes</p>
-          <p style="color:#6b7280;font-size:14px;">Do not share this code with anyone.</p>
-          <p style="color:#9ca3af;font-size:12px;">© ${new Date().getFullYear()} miniGram. All rights reserved.</p>
+
+          <p style="color:#dc2626;font-weight:bold;">
+            OTP expires in 5 minutes
+          </p>
+
+          <p style="color:#6b7280;font-size:14px;">
+            Do not share this code with anyone.
+          </p>
+
+          <p style="color:#9ca3af;font-size:12px;">
+            © ${new Date().getFullYear()} miniGram. All rights reserved.
+          </p>
         </div>
       `,
     });
+
     return otp;
   } catch (error) {
     console.error("Send mail error:", error);
