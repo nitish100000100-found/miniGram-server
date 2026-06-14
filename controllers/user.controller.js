@@ -682,11 +682,12 @@ const getFollowing = async (req, res) => {
       stories: f.stories || [],
     }));
 
-    return res.status(200).json({
-      username: user.username,
-      following: filteredFollowing,
-      currentUserId: req.userId,
-    });
+     return res.status(200).json({
+  username: user.username,
+  following: filteredFollowing,
+  currentUserId: req.userId,
+  currentUserFollowing: currentUser.following || [],
+});
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
