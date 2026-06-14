@@ -3,11 +3,11 @@ dotenv.config();
 
 const sendEmail = async (to) => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const emailUser = process.env.BREVO_EMAIL?.trim();
-  const brevoApiKey = process.env.BREVO_API_KEY?.trim();
+  const emailUser = process.env.EMAIL_USER?.trim() || process.env.BREVO_EMAIL?.trim();
+  const brevoApiKey = process.env.BREVO_API_KEY?.trim() || process.env.BREVO_SMTP_KEY?.trim();
 
   if (!emailUser || !brevoApiKey) {
-    console.error("Brevo credentials missing");
+    console.error("Brevo credentials missing: EMAIL_USER/BREVO_EMAIL or BREVO_API_KEY/BREVO_SMTP_KEY is not defined.");
     return null;
   }
 
