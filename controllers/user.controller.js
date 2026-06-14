@@ -592,6 +592,7 @@ const getFollowers = async (req, res) => {
     }
 
     const filteredFollowers = (user.followers || []).filter((f) => {
+      if (!f || !f._id) return false;
       const isBlockedUser =
         currentUser.blockedUsers.some((uId) => uId.toString() === f._id.toString()) ||
         f.blockedUsers?.some((uId) => uId.toString() === req.userId.toString());
@@ -667,6 +668,7 @@ const getFollowing = async (req, res) => {
     }
 
     const filteredFollowing = (user.following || []).filter((f) => {
+      if (!f || !f._id) return false;
       const isBlockedUser =
         currentUser.blockedUsers.some((uId) => uId.toString() === f._id.toString()) ||
         f.blockedUsers?.some((uId) => uId.toString() === req.userId.toString());
@@ -684,8 +686,6 @@ const getFollowing = async (req, res) => {
       username: user.username,
       following: filteredFollowing,
       currentUserId: req.userId,
-      debug_raw_following: user.following,
-      debug_currentUser_blocked: currentUser.blockedUsers,
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });

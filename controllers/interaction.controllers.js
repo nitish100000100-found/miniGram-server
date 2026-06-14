@@ -781,6 +781,7 @@ const getPendingRequests = async (req, res) => {
     }
 
     const filteredRequests = (me.receivedRequest || []).filter((u) => {
+      if (!u || !u._id) return false;
       const isBlocked =
         (me.blockedUsers || []).some((id) => id.toString() === u._id.toString()) ||
         (u.blockedUsers || []).some((id) => id.toString() === userId.toString());
@@ -856,6 +857,7 @@ const getWhoLikedPost = async (req, res) => {
 
     const filteredUsers = usersWhoLiked
       .filter((u) => {
+        if (!u || !u._id) return false;
         const isBlocked =
           me.blockedUsers.some((id) => id.toString() === u._id.toString()) ||
           u.blockedUsers?.some((id) => id.toString() === userId.toString());
