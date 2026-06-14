@@ -66,4 +66,4 @@ const sendEmail = async (to) => {
   }
 };
 export default sendEmail;
-bro ishko shi se kr do
+
