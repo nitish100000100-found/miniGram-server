@@ -377,6 +377,50 @@ const sendSignupOtp = async (req, res) => {
   }
 };
 
+const changePassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({
+        message: "Both current and new passwords are required",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        message: "New password must be at least 6 characters long",
+      });
+    }
+
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({
+        message: "Incorrect current password",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    return res.status(200).json({
+      message: "Password changed successfully!",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: `Internal Server Error: ${error.message}`,
+    });
+  }
+};
+
 export {
   signUp,
   signIn,
@@ -385,4 +429,6 @@ export {
   verifyOtp,
   forgotPassword,
   sendSignupOtp,
+  changePassword,
 };
+
