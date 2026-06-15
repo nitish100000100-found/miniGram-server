@@ -2,18 +2,26 @@ import User from "../models/user.model.js";
 import mongoose from "mongoose";
 import path from "path";
 import { uploadToCloudinary, cloudinary } from "../config/cloudinary.js";
-import Post from "../models/post.model.js"
-import Highlight from "../models/highlight.model.js"
-import Story from "../models/story.model.js"
-  
+import Post from "../models/post.model.js";
+import Highlight from "../models/highlight.model.js";
+import Story from "../models/story.model.js";
+
 const getCurrentUser = async (req, res) => {
   try {
     const userId = req.userId;
 
     const user = await User.findById(userId)
       .select("-password -public_id")
-      .populate({ path: "posts", select: "-mediaPublicId", options: { sort: { createdAt: -1 } } })
-      .populate({ path: "highlights", select: "-coverImagePublicId -stories.publicId" })
+      .populate({
+        path: "posts",
+        select: "-mediaPublicId",
+        options: { sort: { createdAt: -1 } },
+      })
+      .populate({
+        path: "highlights",
+        select: "-coverImagePublicId -stories.publicId",
+      })
+      .populate({ path: "blockedUsers", select: "_id username profilePicture" })
       .populate({
         path: "stories",
         match: { deleteAt: { $gt: new Date() } },
@@ -33,7 +41,7 @@ const getCurrentUser = async (req, res) => {
     if (myStories.length > 0) {
       hasStory = true;
       const firstUnseen = myStories.find(
-        (s) => !s.viewedBy.some((v) => v.toString() === userId.toString())
+        (s) => !s.viewedBy.some((v) => v.toString() === userId.toString()),
       );
       allViewed = !firstUnseen;
       targetStoryId = firstUnseen ? firstUnseen._id : myStories[0]._id;
@@ -46,7 +54,9 @@ const getCurrentUser = async (req, res) => {
 
     return res.status(200).json({ user: userObj });
   } catch (error) {
-    return res.status(500).json({ message: `Internal Server Error: ${error.message}` });
+    return res
+      .status(500)
+      .json({ message: `Internal Server Error: ${error.message}` });
   }
 };
 
@@ -99,7 +109,7 @@ const suggestedUsers = async (req, res) => {
 
     await User.populate(users, {
       path: "stories",
-      match: { deleteAt: { $gt: new Date() } }
+      match: { deleteAt: { $gt: new Date() } },
     });
 
     return res.status(200).json({ users });
@@ -185,7 +195,9 @@ const editProfile = async (req, res, next) => {
       }
     }
 
-    const updatedUser = await User.findById(req.userId).select("-password -public_id");
+    const updatedUser = await User.findById(req.userId).select(
+      "-password -public_id",
+    );
 
     return res.status(200).json(updatedUser);
   } catch (error) {
@@ -232,9 +244,9 @@ const switchToPublic = async (req, res) => {
           reqId,
           {
             $addToSet: { following: user._id },
-            $pull: { sendRequest: user._id }
+            $pull: { sendRequest: user._id },
           },
-          { session }
+          { session },
         );
       }
       user.receivedRequest = [];
@@ -244,13 +256,19 @@ const switchToPublic = async (req, res) => {
     await user.save({ session });
     await session.commitTransaction();
 
-    const updatedUser = await User.findById(userId).select("-password -public_id");
-    return res.status(200).json({ message: "Account switched to public", user: updatedUser });
+    const updatedUser = await User.findById(userId).select(
+      "-password -public_id",
+    );
+    return res
+      .status(200)
+      .json({ message: "Account switched to public", user: updatedUser });
   } catch (error) {
     if (session?.inTransaction()) {
       await session.abortTransaction();
     }
-    return res.status(500).json({ message: `Internal Server Error: ${error.message}` });
+    return res
+      .status(500)
+      .json({ message: `Internal Server Error: ${error.message}` });
   } finally {
     if (session) {
       session.endSession();
@@ -274,14 +292,18 @@ const switchToPrivate = async (req, res) => {
     user.isPrivate = true;
     await user.save();
 
-    const updatedUser = await User.findById(userId).select("-password -public_id");
-    return res.status(200).json({ message: "Account switched to private", user: updatedUser });
+    const updatedUser = await User.findById(userId).select(
+      "-password -public_id",
+    );
+    return res
+      .status(200)
+      .json({ message: "Account switched to private", user: updatedUser });
   } catch (error) {
-    return res.status(500).json({ message: `Internal Server Error: ${error.message}` });
+    return res
+      .status(500)
+      .json({ message: `Internal Server Error: ${error.message}` });
   }
 };
-
-
 
 const lookFor = async (req, res) => {
   try {
@@ -301,8 +323,15 @@ const lookFor = async (req, res) => {
 
     const profileUser = await User.findById(id)
       .select("-password -savedPosts -likedPosts -email -public_id")
-      .populate({ path: "posts", select: "-mediaPublicId", options: { sort: { createdAt: -1 } } })
-      .populate({ path: "highlights", select: "-coverImagePublicId -stories.publicId" })
+      .populate({
+        path: "posts",
+        select: "-mediaPublicId",
+        options: { sort: { createdAt: -1 } },
+      })
+      .populate({
+        path: "highlights",
+        select: "-coverImagePublicId -stories.publicId",
+      })
       .populate({ path: "stories" });
 
     if (!profileUser) {
@@ -325,9 +354,10 @@ const lookFor = async (req, res) => {
       (currentUser.blockedUsers || []).some(
         (userId) => userId.toString() === profileUser._id.toString(),
       ) ||
-      (profileUser.blockedUsers && profileUser.blockedUsers.some(
-        (userId) => userId.toString() === currentUser._id.toString(),
-      ));
+      (profileUser.blockedUsers &&
+        profileUser.blockedUsers.some(
+          (userId) => userId.toString() === currentUser._id.toString(),
+        ));
 
     if (isBlocked) {
       return res.status(404).json({
@@ -344,13 +374,15 @@ const lookFor = async (req, res) => {
       ...blockedBy,
     ];
 
-    const commonFollowers = (profileUser.followers || []).filter((followerId) => {
-      const fidStr = followerId.toString();
-      if (excludedUsers.includes(fidStr)) return false;
-      return (currentUser.following || []).some(
-        (followingId) => followingId.toString() === fidStr,
-      );
-    });
+    const commonFollowers = (profileUser.followers || []).filter(
+      (followerId) => {
+        const fidStr = followerId.toString();
+        if (excludedUsers.includes(fidStr)) return false;
+        return (currentUser.following || []).some(
+          (followingId) => followingId.toString() === fidStr,
+        );
+      },
+    );
 
     const commonUsers = await User.find({
       _id: { $in: commonFollowers },
@@ -370,7 +402,7 @@ const lookFor = async (req, res) => {
 
     const activeStories = await Story.find({
       author: id,
-      deleteAt: { $gt: new Date() }
+      deleteAt: { $gt: new Date() },
     }).sort({ createdAt: 1 });
 
     let hasStory = false;
@@ -382,7 +414,7 @@ const lookFor = async (req, res) => {
     if (activeStories.length > 0 && isStoryAccessible) {
       hasStory = true;
       const firstUnseen = activeStories.find(
-        (s) => !s.viewedBy.some((v) => v.toString() === req.userId.toString())
+        (s) => !s.viewedBy.some((v) => v.toString() === req.userId.toString()),
       );
       allViewed = !firstUnseen;
       targetStoryId = firstUnseen ? firstUnseen._id : activeStories[0]._id;
@@ -432,7 +464,7 @@ const getFollowingStoriesUsers = async (req, res) => {
     // 1. Current user verify + following populate
     const me = await User.findById(myId).populate(
       "following",
-      "username profilePicture name blockedUsers"
+      "username profilePicture name blockedUsers",
     );
     if (!me) {
       return res.status(404).json({ message: "User not found" });
@@ -449,12 +481,16 @@ const getFollowingStoriesUsers = async (req, res) => {
 
     for (const user of me.following) {
       const isBlockedUser =
-        (me.blockedUsers || []).some((uId) => uId.toString() === user._id.toString()) ||
-        (user.blockedUsers || []).some((uId) => uId.toString() === myId.toString());
+        (me.blockedUsers || []).some(
+          (uId) => uId.toString() === user._id.toString(),
+        ) ||
+        (user.blockedUsers || []).some(
+          (uId) => uId.toString() === myId.toString(),
+        );
       if (isBlockedUser) continue;
 
       const userStories = activeStories.filter(
-        (s) => s.author.toString() === user._id.toString()
+        (s) => s.author.toString() === user._id.toString(),
       );
 
       if (userStories.length === 0) continue; // story nahi hai to skip
@@ -463,7 +499,9 @@ const getFollowingStoriesUsers = async (req, res) => {
       let targetStoryId = userStories[0]._id; // default: oldest story
 
       for (const story of userStories) {
-        const seen = story.viewedBy.some((v) => v.toString() === myId.toString());
+        const seen = story.viewedBy.some(
+          (v) => v.toString() === myId.toString(),
+        );
         if (!seen) {
           status = 1;
           targetStoryId = story._id;
@@ -495,8 +533,14 @@ const getFollowingStoriesUsers = async (req, res) => {
     }
 
     // Dono groups ko latest story time ke hisaab se sort karo (newest first)
-    unseen.sort((a, b) => new Date(b.latestStoryCreatedAt) - new Date(a.latestStoryCreatedAt));
-    seenList.sort((a, b) => new Date(b.latestStoryCreatedAt) - new Date(a.latestStoryCreatedAt));
+    unseen.sort(
+      (a, b) =>
+        new Date(b.latestStoryCreatedAt) - new Date(a.latestStoryCreatedAt),
+    );
+    seenList.sort(
+      (a, b) =>
+        new Date(b.latestStoryCreatedAt) - new Date(a.latestStoryCreatedAt),
+    );
 
     // Unseen pehle, fir seen
     const sortedFollowingStories = [...unseen, ...seenList];
@@ -519,11 +563,15 @@ const getFollowingStoriesUsers = async (req, res) => {
       deleteAt: { $gt: new Date() },
     }).sort({ createdAt: 1 });
 
-    let myStoryStatus = { hasStory: false, allViewed: true, targetStoryId: null };
+    let myStoryStatus = {
+      hasStory: false,
+      allViewed: true,
+      targetStoryId: null,
+    };
 
     if (myStories.length > 0) {
       const firstUnseen = myStories.find(
-        (s) => !s.viewedBy.some((v) => v.toString() === myId.toString())
+        (s) => !s.viewedBy.some((v) => v.toString() === myId.toString()),
       );
 
       myStoryStatus = firstUnseen
@@ -561,8 +609,9 @@ const getFollowers = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-   
-    const currentUser = await User.findById(req.userId).select("blockedUsers following");
+    const currentUser = await User.findById(req.userId).select(
+      "blockedUsers following",
+    );
     if (!currentUser) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -589,20 +638,26 @@ const getFollowers = async (req, res) => {
       }
     }
 
-    const filteredFollowers = (user.followers || []).filter((f) => {
-      if (!f || !f._id) return false;
-      const isBlockedUser =
-        currentUser.blockedUsers.some((uId) => uId.toString() === f._id.toString()) ||
-        f.blockedUsers?.some((uId) => uId.toString() === req.userId.toString());
-      return !isBlockedUser;
-    }).map((f) => ({
-      _id: f._id,
-      username: f.username,
-      name: f.name,
-      profilePicture: f.profilePicture,
-      isPrivate: f.isPrivate,
-      stories: f.stories || [],
-    }));
+    const filteredFollowers = (user.followers || [])
+      .filter((f) => {
+        if (!f || !f._id) return false;
+        const isBlockedUser =
+          currentUser.blockedUsers.some(
+            (uId) => uId.toString() === f._id.toString(),
+          ) ||
+          f.blockedUsers?.some(
+            (uId) => uId.toString() === req.userId.toString(),
+          );
+        return !isBlockedUser;
+      })
+      .map((f) => ({
+        _id: f._id,
+        username: f.username,
+        name: f.name,
+        profilePicture: f.profilePicture,
+        isPrivate: f.isPrivate,
+        stories: f.stories || [],
+      }));
 
     return res.status(200).json({
       username: user.username,
@@ -636,8 +691,9 @@ const getFollowing = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-   
-    const currentUser = await User.findById(req.userId).select("blockedUsers following");
+    const currentUser = await User.findById(req.userId).select(
+      "blockedUsers following",
+    );
     if (!currentUser) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -654,7 +710,6 @@ const getFollowing = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    
     if (user.isPrivate && req.userId !== id) {
       const targetUser = await User.findById(id).select("followers");
       const isFollowing = targetUser.followers.some(
@@ -665,27 +720,33 @@ const getFollowing = async (req, res) => {
       }
     }
 
-    const filteredFollowing = (user.following || []).filter((f) => {
-      if (!f || !f._id) return false;
-      const isBlockedUser =
-        currentUser.blockedUsers.some((uId) => uId.toString() === f._id.toString()) ||
-        f.blockedUsers?.some((uId) => uId.toString() === req.userId.toString());
-      return !isBlockedUser;
-    }).map((f) => ({
-      _id: f._id,
-      username: f.username,
-      name: f.name,
-      profilePicture: f.profilePicture,
-      isPrivate: f.isPrivate,
-      stories: f.stories || [],
-    }));
+    const filteredFollowing = (user.following || [])
+      .filter((f) => {
+        if (!f || !f._id) return false;
+        const isBlockedUser =
+          currentUser.blockedUsers.some(
+            (uId) => uId.toString() === f._id.toString(),
+          ) ||
+          f.blockedUsers?.some(
+            (uId) => uId.toString() === req.userId.toString(),
+          );
+        return !isBlockedUser;
+      })
+      .map((f) => ({
+        _id: f._id,
+        username: f.username,
+        name: f.name,
+        profilePicture: f.profilePicture,
+        isPrivate: f.isPrivate,
+        stories: f.stories || [],
+      }));
 
-     return res.status(200).json({
-  username: user.username,
-  following: filteredFollowing,
-  currentUserId: req.userId,
-  currentUserFollowing: currentUser.following || [],
-});
+    return res.status(200).json({
+      username: user.username,
+      following: filteredFollowing,
+      currentUserId: req.userId,
+      currentUserFollowing: currentUser.following || [],
+    });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

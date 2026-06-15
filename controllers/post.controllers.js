@@ -347,121 +347,38 @@ const getExplorePosts = async (req, res) => {
 };
 const getSavedPosts = async (req, res) => {
   try {
-
-    //This whole query was written by AI
-    const userId = req.userId.toString();
+    const userId = req.userId;
     const me = await User.findById(userId).populate({
       path: "savedPosts",
-      populate: [
-        {
-          path: "author",
-          select: "username profilePicture name isPrivate followers blockedUsers stories",
-          populate: {
-            path: "stories",
-            match: { deleteAt: { $gt: new Date() } },
-          },
-        },
-        {
-          path: "comments.commentedBy",
-          select: "username profilePicture name",
-        },
-      ],
+      populate: {
+        path: "author",
+        select: "username profilePicture",
+      },
       options: { sort: { createdAt: -1 } },
     });
+
     if (!me) {
       return res.status(404).json({ message: "User not found" });
     }
-    
-    const canViewPost = (post) => {
-      if (!post) return false;        
-      if (!post.author) return false; 
-      const author = post.author;
-      const authorId = author._id.toString();
-     
-      if (authorId === userId) return true;
-      const isBlocked =
-        author.blockedUsers?.some((id) => id.toString() === userId) ||
-        me.blockedUsers?.some((id) => id.toString() === authorId);
-      if (isBlocked) return false;
-      if (author.isPrivate) {
-        const iFollow = author.followers?.some(
-          (id) => id.toString() === userId,
-        );
-        if (!iFollow) return false;
-      }
-      return true;
-    };
-    const visiblePosts = me.savedPosts
-      .filter(canViewPost)
-      .map((post) => {
-        const p = post.toObject();
-       
-        delete p.mediaPublicId;
-        if (p.author) {
-          delete p.author.blockedUsers;
-          delete p.author.followers;
-          delete p.author.isPrivate;
-          delete p.author.email;
-        }
-        return p;
-      });
+
+    const blockedBy = (
+      await User.find({ blockedUsers: userId }).select("_id")
+    ).map((u) => u._id);
+
+    const excludedUsers = [...me.blockedUsers, ...blockedBy];
+
+    const visiblePosts = (me.savedPosts || []).filter((post) => {
+      if (!post || !post.author) return false;
+      const authorId = post.author._id.toString();
+      const isBlocked = excludedUsers.some((id) => id.toString() === authorId);
+      return !isBlocked;
+    });
+
     return res.status(200).json({ savedPosts: visiblePosts });
   } catch (error) {
-    return res
-      .status(500)
-      .json({ message: `Internal Server Error: ${error.message}` });
+    return res.status(500).json({ message: error.message });
   }
 };
-
-// visiblePosts = [
-//   {
-//     _id: "665f1a2b3c4d5e6f7a8b9c01",
-//     author: {
-//       _id: "665f1a2b3c4d5e6f7a8b9c10",
-//       username: "rohan_99",
-//       name: "Rohan Kumar",
-//       profilePicture: "https://res.cloudinary.com/demo/image/upload/rohan.jpg"
-//       // isPrivate, followers, blockedUsers REMOVED ✅
-//     },
-//     mediaType: "image",
-//     mediaUrl: "https://res.cloudinary.com/demo/image/upload/post1.jpg",
-//     mediaPublicId: "post1",
-//     caption: "Sunset vibes 🌅",
-//     likes: ["665f1a2b3c4d5e6f7a8b9c20", "665f1a2b3c4d5e6f7a8b9c21"],
-//     comments: [
-//       {
-//         _id: "665f1a2b3c4d5e6f7a8b9c30",
-//         text: "Nice pic bro!",
-//         createdAt: "2025-06-01T10:00:00.000Z",
-//         commentedBy: {
-//           _id: "665f1a2b3c4d5e6f7a8b9c20",
-//           username: "neha_k",
-//           name: "Neha Kapoor",
-//           profilePicture: "https://res.cloudinary.com/demo/image/upload/neha.jpg"
-//         }
-//       }
-//     ],
-//     createdAt: "2025-06-01T09:00:00.000Z",
-//     updatedAt: "2025-06-01T09:30:00.000Z"
-//   },
-//   {
-//     _id: "665f1a2b3c4d5e6f7a8b9c02",
-//     author: {
-//       _id: "665f1a2b3c4d5e6f7a8b9c99",
-//       username: "eren_dev",
-//       name: "Eren",
-//       profilePicture: "https://res.cloudinary.com/demo/image/upload/eren.jpg"
-//     },
-//     mediaType: "video",
-//     mediaUrl: "https://res.cloudinary.com/demo/video/upload/myvideo.mp4",
-//     mediaPublicId: "myvideo",
-//     caption: "My own post",
-//     likes: [],
-//     comments: [],
-//     createdAt: "2025-05-28T14:20:00.000Z",
-//     updatedAt: "2025-05-28T14:20:00.000Z"
-//   }
-// ]
 
 const getPostComments = async (req, res) => {
   try {
