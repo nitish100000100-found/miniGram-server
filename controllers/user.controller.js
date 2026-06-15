@@ -10,21 +10,21 @@ const getCurrentUser = async (req, res) => {
   try {
     const userId = req.userId;
 
-  
-  const user = await User.findById(userId)
-    .select("-password -public_id")
-    .populate({ path: "posts", select: "-mediaPublicId", options: { sort: { createdAt: -1 } } })
-    .populate({ path: "highlights", select: "-coverImagePublicId -stories.publicId" })
-    .populate({ path: "stories" });
+    const user = await User.findById(userId)
+      .select("-password -public_id")
+      .populate({ path: "posts", select: "-mediaPublicId", options: { sort: { createdAt: -1 } } })
+      .populate({ path: "highlights", select: "-coverImagePublicId -stories.publicId" })
+      .populate({
+        path: "stories",
+        match: { deleteAt: { $gt: new Date() } },
+        options: { sort: { createdAt: 1 } },
+      });
+
     if (!user) {
       return res.status(404).json({ message: "User not found !" });
     }
 
-    // Calculate story status for own user
-    const myStories = await Story.find({
-      author: userId,
-      deleteAt: { $gt: new Date() },
-    }).sort({ createdAt: 1 });
+    const myStories = user.stories;
 
     let hasStory = false;
     let allViewed = true;
@@ -46,9 +46,7 @@ const getCurrentUser = async (req, res) => {
 
     return res.status(200).json({ user: userObj });
   } catch (error) {
-    return res
-      .status(500)
-      .json({ message: `Internal Server Error: ${error.message}` });
+    return res.status(500).json({ message: `Internal Server Error: ${error.message}` });
   }
 };
 
