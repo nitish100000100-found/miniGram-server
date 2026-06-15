@@ -66,4 +66,3 @@ const sendEmail = async (to) => {
   }
 };
 export default sendEmail;
-
