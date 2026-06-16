@@ -472,6 +472,9 @@ const getLoopById = async (req, res) => {
     }
 
     const loopAuthor = loop.author;
+    if (!loopAuthor) {
+      return res.status(404).json({ message: "Loop author not found" });
+    }
 
     const me = await User.findById(userId);
     if (!me) {
@@ -565,7 +568,7 @@ const getUserLoops = async (req, res) => {
     }
 
     const loops = await Loop.find({ author: targetUserId })
-      .select("_id thumbnail views likes createdAt")
+      .select("_id thumbnail likes createdAt")
       .sort({ createdAt: -1 });
 
     return res.status(200).json({ loops });

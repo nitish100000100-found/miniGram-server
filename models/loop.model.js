@@ -29,11 +29,6 @@ const LoopSchema = new mongoose.Schema(
       default: "",
     },
 
-    views: {
-      type: Number,
-      default: 0,
-    },
-
     likes: [
       {
         type: mongoose.Schema.Types.ObjectId,
