@@ -102,7 +102,19 @@ const deleteLoop = async (req, res) => {
   try {
     const { loopId } = req.params;
     const userId = req.userId;
-    const loop = req.loop;
+
+    if (!loopId) {
+      return res.status(400).json({ message: "Loop ID is required" });
+    }
+
+    const loop = await Loop.findById(loopId);
+    if (!loop) {
+      return res.status(404).json({ message: "Loop not found" });
+    }
+
+    if (loop.author.toString() !== userId.toString()) {
+      return res.status(403).json({ message: "You are not authorized to modify this loop" });
+    }
 
     session = await mongoose.startSession();
     session.startTransaction();
@@ -729,6 +741,118 @@ const getLoopComments = async (req, res) => {
   }
 };
 
+const saveLoop = async (req, res) => {
+  try {
+    const { loopId } = req.params;
+    const userId = req.userId;
+
+    if (!loopId) {
+      return res.status(400).json({ message: "Loop ID is required" });
+    }
+
+    const loop = await Loop.findById(loopId);
+    if (!loop) {
+      return res.status(404).json({ message: "Loop not found" });
+    }
+
+    const loopAuthor = await User.findById(loop.author);
+    if (!loopAuthor) {
+      return res.status(404).json({ message: "Loop author not found" });
+    }
+
+    const me = await User.findById(userId);
+    if (!me) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Blocking / Private account checks (except if it is user's own loop)
+    const isSelf = loop.author.toString() === userId.toString();
+    if (!isSelf) {
+      const isBlocked =
+        loopAuthor.blockedUsers?.some(
+          (id) => id.toString() === userId.toString(),
+        ) ||
+        me.blockedUsers?.some(
+          (id) => id.toString() === loopAuthor._id.toString(),
+        );
+
+      if (isBlocked) {
+        return res.status(403).json({
+          message: "You are blocked by the user or you have blocked the user",
+        });
+      }
+
+      const isPrivate = loopAuthor.isPrivate;
+      const isFollowed = loopAuthor.followers?.some(
+        (id) => id.toString() === userId.toString(),
+      );
+
+      if (isPrivate && !isFollowed) {
+        return res.status(403).json({ message: "Private Account" });
+      }
+    }
+
+    const alreadySaved = me.savedLoops?.some(
+      (id) => id.toString() === loopId.toString(),
+    ) || false;
+
+    if (alreadySaved) {
+      await User.updateOne({ _id: userId }, { $pull: { savedLoops: loopId } });
+    } else {
+      await User.updateOne(
+        { _id: userId },
+        { $addToSet: { savedLoops: loopId } },
+      );
+    }
+
+    return res.status(200).json({
+      message: alreadySaved
+        ? "Loop unsaved successfully"
+        : "Loop saved successfully",
+      saved: !alreadySaved,
+    });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: `Internal Server Error: ${error.message}` });
+  }
+};
+
+const getSavedLoops = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const me = await User.findById(userId).populate({
+      path: "savedLoops",
+      populate: {
+        path: "author",
+        select: "username profilePicture",
+      },
+      options: { sort: { createdAt: -1 } },
+    });
+
+    if (!me) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const blockedBy = (
+      await User.find({ blockedUsers: userId }).select("_id")
+    ).map((u) => u._id);
+
+    const excludedUsers = [...me.blockedUsers, ...blockedBy];
+
+    const visibleLoops = (me.savedLoops || []).filter((loop) => {
+      if (!loop || !loop.author) return false;
+      const authorId = loop.author._id.toString();
+      const isBlocked = excludedUsers.some((id) => id.toString() === authorId);
+      return !isBlocked;
+    });
+
+    return res.status(200).json({ savedLoops: visibleLoops });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 export {
   uploadLoop,
   deleteLoop,
@@ -740,4 +864,6 @@ export {
   getUserLoops,
   getWhoLikedLoop,
   getLoopComments,
+  saveLoop,
+  getSavedLoops,
 };

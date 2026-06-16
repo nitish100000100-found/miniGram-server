@@ -75,6 +75,13 @@ const UserSchema = new mongoose.Schema(
       },
     ],
 
+    savedLoops: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Loop",
+      },
+    ],
+
     sendRequest: [
       {
         type: mongoose.Schema.Types.ObjectId,
