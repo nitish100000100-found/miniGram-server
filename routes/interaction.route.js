@@ -14,9 +14,19 @@ import {
   getPendingRequests,
   getWhoLikedPost,
   removeFollower,
+  searchUser,
+  getNotifications,
+  markNotificationsRead,
 } from "../controllers/interaction.controllers.js";
 
 const interactionRouter = express.Router();
+
+// Notifications
+interactionRouter.get("/notifications", isAuth, getNotifications);
+interactionRouter.post("/notifications/read", isAuth, markNotificationsRead);
+
+// Search
+interactionRouter.post("/search", isAuth, searchUser);
 
 // Block / Unblock
 interactionRouter.post("/block/:id", isAuth, blockUser);

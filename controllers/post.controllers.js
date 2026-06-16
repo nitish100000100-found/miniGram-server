@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import User from "../models/user.model.js";
 import Post from "../models/post.model.js";
 import Story from "../models/story.model.js";
+import Notification from "../models/notification.model.js";
 import { uploadToCloudinary, cloudinary } from "../config/cloudinary.js";
 import path from "path";
 
@@ -142,6 +143,8 @@ const deletePost = async (req, res) => {
       { $pull: { likedPosts: postId, savedPosts: postId } },
       { session },
     );
+
+    await Notification.deleteMany({ targetType: "Post", targetId: postId }).session(session);
 
     await Post.findByIdAndDelete(postId).session(session);
 

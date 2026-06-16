@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import Loop from "../models/loop.model.js";
 import User from "../models/user.model.js";
+import Notification from "../models/notification.model.js";
 import { uploadToCloudinary, cloudinary } from "../config/cloudinary.js";
 import path from "path";
 
@@ -111,6 +112,8 @@ const deleteLoop = async (req, res) => {
       { $pull: { loops: loopId } },
       { session },
     );
+
+    await Notification.deleteMany({ targetType: "Loop", targetId: loopId }).session(session);
 
     await Loop.findByIdAndDelete(loopId).session(session);
 
@@ -227,8 +230,28 @@ const likeLoop = async (req, res) => {
       loop.likes = loop.likes.filter(
         (id) => id.toString() !== userId.toString(),
       );
+
+      // Delete loop like notification
+      await Notification.deleteOne({
+        sender: userId,
+        recipient: loop.author,
+        type: "like",
+        targetType: "Loop",
+        targetId: loopId,
+      });
     } else {
       loop.likes.push(userId);
+
+      // Create notification if not self
+      if (userId.toString() !== loop.author.toString()) {
+        await Notification.create({
+          sender: userId,
+          recipient: loop.author,
+          type: "like",
+          targetType: "Loop",
+          targetId: loopId,
+        });
+      }
     }
 
     await loop.save();
@@ -305,6 +328,17 @@ const commentLoop = async (req, res) => {
     loop.comments.push({ commentedBy: userId, text: text.trim() });
     await loop.save();
 
+    // Create notification if not self
+    if (userId.toString() !== loop.author.toString()) {
+      await Notification.create({
+        sender: userId,
+        recipient: loop.author,
+        type: "comment",
+        targetType: "Loop",
+        targetId: loopId,
+      });
+    }
+
     const populatedLoop = await Loop.findById(loopId).populate(
       "comments.commentedBy",
       "username profilePicture name",
@@ -361,6 +395,15 @@ const deleteCommentLoop = async (req, res) => {
       (comment) => comment._id.toString() !== commentId.toString(),
     );
     await loop.save();
+
+    // Delete comment notification
+    await Notification.deleteOne({
+      sender: targetComment.commentedBy,
+      recipient: loop.author,
+      type: "comment",
+      targetType: "Loop",
+      targetId: loopId,
+    });
 
     const populatedLoop = await Loop.findById(loopId).populate(
       "comments.commentedBy",

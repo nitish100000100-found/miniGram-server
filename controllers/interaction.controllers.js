@@ -3,6 +3,7 @@ import User from "../models/user.model.js";
 import Post from "../models/post.model.js";
 import Story from "../models/story.model.js";
 import Loop from "../models/loop.model.js";
+import Notification from "../models/notification.model.js";
 
 const unblockUser = async (req, res) => {
   try {
@@ -150,6 +151,14 @@ const blockUser = async (req, res) => {
       (id) => !myPostIds.includes(id.toString()),
     );
 
+    // Delete all notifications between me and targetUserId
+    await Notification.deleteMany({
+      $or: [
+        { sender: userId, recipient: targetUserId },
+        { sender: targetUserId, recipient: userId },
+      ],
+    }).session(session);
+
     await me.save({ session });
     await target.save({ session });
 
@@ -230,6 +239,17 @@ const comment = async (req, res) => {
     post.comments.push(newCommentObj);
     await post.save();
 
+    // Create notification if not self
+    if (userId.toString() !== post.author.toString()) {
+      await Notification.create({
+        sender: userId,
+        recipient: post.author,
+        type: "comment",
+        targetType: "Post",
+        targetId: postId,
+      });
+    }
+
     const addedCommentId = post.comments[post.comments.length - 1]._id;
 
     return res.status(201).json({
@@ -283,6 +303,15 @@ const deleteComment = async (req, res) => {
       (comment) => comment._id.toString() !== commentId.toString(),
     );
     await post.save();
+
+    // Delete comment notification
+    await Notification.deleteOne({
+      sender: targetComment.commentedBy,
+      recipient: post.author,
+      type: "comment",
+      targetType: "Post",
+      targetId: postId,
+    });
 
     return res.status(200).json({
       message: "Comment deleted successfully",
@@ -384,9 +413,32 @@ const likePost = async (req, res) => {
       me.likedPosts = me.likedPosts.filter(
         (id) => id.toString() !== postId.toString(),
       );
+      // Delete notification
+      await Notification.deleteOne({
+        sender: userId,
+        recipient: postAuthor._id,
+        type: "like",
+        targetType: "Post",
+        targetId: postId,
+      }).session(session);
     } else {
       post.likes.push(userId);
       me.likedPosts.push(postId);
+      // Create notification if not liking own post
+      if (userId.toString() !== postAuthor._id.toString()) {
+        await Notification.create(
+          [
+            {
+              sender: userId,
+              recipient: postAuthor._id,
+              type: "like",
+              targetType: "Post",
+              targetId: postId,
+            },
+          ],
+          { session },
+        );
+      }
     }
     await post.save({ session });
     await me.save({ session });
@@ -475,6 +527,17 @@ const sendFollowRequest = async (req, res) => {
       me.sendRequest.push(targetUserId);
       target.receivedRequest.push(userId);
 
+      await Notification.create(
+        [
+          {
+            sender: userId,
+            recipient: targetUserId,
+            type: "follow_request",
+          },
+        ],
+        { session },
+      );
+
       await me.save({ session });
       await target.save({ session });
       await session.commitTransaction();
@@ -487,6 +550,17 @@ const sendFollowRequest = async (req, res) => {
     } else {
       me.following.push(targetUserId);
       target.followers.push(userId);
+
+      await Notification.create(
+        [
+          {
+            sender: userId,
+            recipient: targetUserId,
+            type: "follow",
+          },
+        ],
+        { session },
+      );
 
       await me.save({ session });
       await target.save({ session });
@@ -546,6 +620,14 @@ const unFollowSomeOne = async (req, res) => {
       (id) => id.toString() !== userId.toString(),
     );
 
+    // Delete follow notifications
+    await Notification.deleteMany({
+      $or: [
+        { sender: userId, recipient: targetUserId, type: { $in: ["follow", "follow_request", "request_accepted"] } },
+        { sender: targetUserId, recipient: userId, type: "request_accepted" },
+      ],
+    }).session(session);
+
     await me.save({ session });
     await target.save({ session });
     await session.commitTransaction();
@@ -593,6 +675,14 @@ const removeFollower = async (req, res) => {
       (id) => id.toString() !== userId.toString()
     );
 
+    // Delete follow notifications
+    await Notification.deleteMany({
+      $or: [
+        { sender: targetUserId, recipient: userId, type: { $in: ["follow", "follow_request", "request_accepted"] } },
+        { sender: userId, recipient: targetUserId, type: "request_accepted" },
+      ],
+    }).session(session);
+
     await me.save({ session });
     await target.save({ session });
     await session.commitTransaction();
@@ -639,6 +729,12 @@ const cancelSendedFollowRequest = async (req, res) => {
     target.receivedRequest = target.receivedRequest.filter(
       (id) => id.toString() !== userId.toString(),
     );
+
+    await Notification.deleteOne({
+      sender: userId,
+      recipient: targetUserId,
+      type: "follow_request",
+    }).session(session);
 
     await me.save({ session });
     await target.save({ session });
@@ -701,6 +797,24 @@ const acceptFollowRequest = async (req, res) => {
     me.followers.push(requesterId);
     requester.following.push(userId);
 
+    // Handle notifications
+    await Notification.deleteOne({
+      sender: requesterId,
+      recipient: userId,
+      type: "follow_request",
+    }).session(session);
+
+    await Notification.create(
+      [
+        {
+          sender: userId,
+          recipient: requesterId,
+          type: "request_accepted",
+        },
+      ],
+      { session },
+    );
+
     await me.save({ session });
     await requester.save({ session });
     await session.commitTransaction();
@@ -747,6 +861,13 @@ const rejectFollowRequest = async (req, res) => {
     requester.sendRequest = requester.sendRequest.filter(
       (id) => id.toString() !== userId.toString(),
     );
+
+    // Delete follow request notification
+    await Notification.deleteOne({
+      sender: requesterId,
+      recipient: userId,
+      type: "follow_request",
+    }).session(session);
 
     await me.save({ session });
     await requester.save({ session });
@@ -880,6 +1001,90 @@ const getWhoLikedPost = async (req, res) => {
   }
 };
 
+const searchUser = async (req, res) => {
+  try {
+    const { query } = req.body;
+    const searchInput = (query || "").replace(/\s+/g, "").toLowerCase();
+
+    if (!searchInput) {
+      return res.status(200).json({ users: [] });
+    }
+
+    const currentUserId = req.userId;
+    const me = await User.findById(currentUserId);
+    if (!me) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Find users whose username starts with the input query
+    const users = await User.find({
+      username: { $regex: `^${searchInput}` },
+    })
+      .select("_id username name profilePicture blockedUsers isPrivate")
+      .limit(50);
+
+    // Filter out users who have blocked me or whom I have blocked
+    const filteredUsers = users.filter((u) => {
+      if (!u || !u._id) return false;
+      const isBlocked =
+        me.blockedUsers.some((id) => id.toString() === u._id.toString()) ||
+        u.blockedUsers?.some((id) => id.toString() === currentUserId.toString());
+      return !isBlocked;
+    });
+
+    return res.status(200).json({ users: filteredUsers });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: `Internal Server Error: ${error.message}` });
+  }
+};
+
+const getNotifications = async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) {
+      return res.status(400).json({ message: "User not found" });
+    }
+
+    const notifications = await Notification.find({ recipient: userId })
+      .populate("sender", "username profilePicture name")
+      .populate("targetId")
+      .sort({ createdAt: -1 });
+
+    const unreadCount = await Notification.countDocuments({
+      recipient: userId,
+      isRead: false,
+    });
+
+    return res.status(200).json({ notifications, unreadCount });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: `Internal Server Error: ${error.message}` });
+  }
+};
+
+const markNotificationsRead = async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) {
+      return res.status(400).json({ message: "User not found" });
+    }
+
+    await Notification.updateMany(
+      { recipient: userId, isRead: false },
+      { $set: { isRead: true } }
+    );
+
+    return res.status(200).json({ message: "Notifications marked as read" });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: `Internal Server Error: ${error.message}` });
+  }
+};
+
 export {
   likePost,
   blockUser,
@@ -894,4 +1099,7 @@ export {
   getPendingRequests,
   getWhoLikedPost,
   removeFollower,
+  searchUser,
+  getNotifications,
+  markNotificationsRead,
 };

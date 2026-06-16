@@ -4,6 +4,7 @@ import path from "path";
 import { uploadToCloudinary, cloudinary } from "../config/cloudinary.js";
 import Post from "../models/post.model.js";
 import Highlight from "../models/highlight.model.js";
+import Notification from "../models/notification.model.js";
 import Story from "../models/story.model.js";
 
 const getCurrentUser = async (req, res) => {
@@ -246,6 +247,25 @@ const switchToPublic = async (req, res) => {
             $addToSet: { following: user._id },
             $pull: { sendRequest: user._id },
           },
+          { session },
+        );
+
+        // Delete follow request notification
+        await Notification.deleteOne({
+          sender: reqId,
+          recipient: user._id,
+          type: "follow_request",
+        }).session(session);
+
+        // Create request_accepted notification
+        await Notification.create(
+          [
+            {
+              sender: user._id,
+              recipient: reqId,
+              type: "request_accepted",
+            },
+          ],
           { session },
         );
       }
