@@ -14,6 +14,7 @@ import {
   getLoopComments,
   saveLoop,
   getSavedLoops,
+  getExploreLoops,
 } from "../controllers/loop.controllers.js";
 
 const loopRouter = express.Router();
@@ -25,6 +26,7 @@ loopRouter.post("/comment/:loopId", isAuth, commentLoop);
 loopRouter.post("/comment/delete/:loopId/:commentId", isAuth, deleteCommentLoop);
 loopRouter.post("/save/:loopId", isAuth, saveLoop);
 loopRouter.get("/saved/all", isAuth, getSavedLoops);
+loopRouter.get("/explore/all", isAuth, getExploreLoops);
 loopRouter.get("/all", isAuth, getLoops);
 loopRouter.get("/user/:userId", isAuth, getUserLoops);
 loopRouter.get("/whoLiked/:loopId", isAuth, getWhoLikedLoop);

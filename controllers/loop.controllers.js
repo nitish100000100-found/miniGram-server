@@ -853,6 +853,45 @@ const getSavedLoops = async (req, res) => {
   }
 };
 
+const getExploreLoops = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    const me = await User.findById(userId);
+    if (!me) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const blockedBy = (
+      await User.find({ blockedUsers: userId }).select("_id")
+    ).map((u) => u._id);
+
+    const excludedUsers = [...me.blockedUsers, ...blockedBy];
+
+    const validAuthors = await User.find({
+      _id: { $nin: [...excludedUsers, userId] },
+      $or: [
+        { isPrivate: false },
+        { _id: { $in: me.following } },
+      ],
+    }).select("_id");
+
+    const authorIds = validAuthors.map((u) => u._id);
+
+    const loops = await Loop.find({ author: { $in: authorIds } })
+      .select("-public_id")
+      .populate("author", "username profilePicture name")
+      .populate("comments.commentedBy", "username profilePicture name")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({ loops });
+  } catch (error) {
+    return res.status(500).json({
+      message: `Internal Server Error: ${error.message}`,
+    });
+  }
+};
+
 export {
   uploadLoop,
   deleteLoop,
@@ -866,4 +905,5 @@ export {
   getLoopComments,
   saveLoop,
   getSavedLoops,
+  getExploreLoops,
 };
