@@ -568,7 +568,9 @@ const getUserLoops = async (req, res) => {
     }
 
     const loops = await Loop.find({ author: targetUserId })
-      .select("_id thumbnail likes createdAt")
+      .select("-public_id")
+      .populate("author", "username profilePicture name")
+      .populate("comments.commentedBy", "username profilePicture name")
       .sort({ createdAt: -1 });
 
     return res.status(200).json({ loops });
