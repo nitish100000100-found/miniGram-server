@@ -114,12 +114,16 @@ const blockUser = async (req, res) => {
 
     await Post.updateMany(
       { author: userId },
-      { $pull: { likes: targetUserId, comments: { commentedBy: targetUserId } } },
+      {
+        $pull: { likes: targetUserId, comments: { commentedBy: targetUserId } },
+      },
       { session },
     );
     await Loop.updateMany(
       { author: userId },
-      { $pull: { likes: targetUserId, comments: { commentedBy: targetUserId } } },
+      {
+        $pull: { likes: targetUserId, comments: { commentedBy: targetUserId } },
+      },
       { session },
     );
 
@@ -623,7 +627,11 @@ const unFollowSomeOne = async (req, res) => {
     // Delete follow notifications
     await Notification.deleteMany({
       $or: [
-        { sender: userId, recipient: targetUserId, type: { $in: ["follow", "follow_request", "request_accepted"] } },
+        {
+          sender: userId,
+          recipient: targetUserId,
+          type: { $in: ["follow", "follow_request", "request_accepted"] },
+        },
         { sender: targetUserId, recipient: userId, type: "request_accepted" },
       ],
     }).session(session);
@@ -669,16 +677,20 @@ const removeFollower = async (req, res) => {
     }
 
     me.followers = me.followers.filter(
-      (id) => id.toString() !== targetUserId.toString()
+      (id) => id.toString() !== targetUserId.toString(),
     );
     target.following = target.following.filter(
-      (id) => id.toString() !== userId.toString()
+      (id) => id.toString() !== userId.toString(),
     );
 
     // Delete follow notifications
     await Notification.deleteMany({
       $or: [
-        { sender: targetUserId, recipient: userId, type: { $in: ["follow", "follow_request", "request_accepted"] } },
+        {
+          sender: targetUserId,
+          recipient: userId,
+          type: { $in: ["follow", "follow_request", "request_accepted"] },
+        },
         { sender: userId, recipient: targetUserId, type: "request_accepted" },
       ],
     }).session(session);
@@ -904,8 +916,12 @@ const getPendingRequests = async (req, res) => {
     const filteredRequests = (me.receivedRequest || []).filter((u) => {
       if (!u || !u._id) return false;
       const isBlocked =
-        (me.blockedUsers || []).some((id) => id.toString() === u._id.toString()) ||
-        (u.blockedUsers || []).some((id) => id.toString() === userId.toString());
+        (me.blockedUsers || []).some(
+          (id) => id.toString() === u._id.toString(),
+        ) ||
+        (u.blockedUsers || []).some(
+          (id) => id.toString() === userId.toString(),
+        );
       return !isBlocked;
     });
 
@@ -1028,7 +1044,9 @@ const searchUser = async (req, res) => {
       if (!u || !u._id) return false;
       const isBlocked =
         me.blockedUsers.some((id) => id.toString() === u._id.toString()) ||
-        u.blockedUsers?.some((id) => id.toString() === currentUserId.toString());
+        u.blockedUsers?.some(
+          (id) => id.toString() === currentUserId.toString(),
+        );
       return !isBlocked;
     });
 
@@ -1074,7 +1092,7 @@ const markNotificationsRead = async (req, res) => {
 
     await Notification.updateMany(
       { recipient: userId, isRead: false },
-      { $set: { isRead: true } }
+      { $set: { isRead: true } },
     );
 
     return res.status(200).json({ message: "Notifications marked as read" });

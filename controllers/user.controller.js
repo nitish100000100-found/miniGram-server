@@ -13,6 +13,7 @@ const getCurrentUser = async (req, res) => {
 
     const user = await User.findById(userId)
       .select("-password -public_id")
+      .populate("following", "_id username name profilePicture")
       .populate({
         path: "posts",
         select: "-mediaPublicId",

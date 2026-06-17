@@ -9,6 +9,7 @@ import interactionRouter from "./routes/interaction.route.js";
 import loopRouter from "./routes/loop.route.js";
 import storyRouter from "./routes/story.route.js";
 import highlightRouter from "./routes/highlight.route.js";
+import messageRouter from "./routes/message.route.js";
 
 import errorHandler from "./middleware/error.middleware.js";
 
@@ -41,6 +42,7 @@ app.use("/api/interaction", interactionRouter);
 app.use("/api/loop", loopRouter);
 app.use("/api/story", storyRouter);
 app.use("/api/highlight", highlightRouter);
+app.use("/api/message", messageRouter);
 
 
 app.use(errorHandler);

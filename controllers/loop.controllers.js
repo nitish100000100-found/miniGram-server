@@ -874,7 +874,7 @@ const getExploreLoops = async (req, res) => {
     const excludedUsers = [...me.blockedUsers, ...blockedBy];
 
     const validAuthors = await User.find({
-      _id: { $nin: [...excludedUsers, userId] },
+      _id: { $nin: [...excludedUsers,userId] },
       $or: [
         { isPrivate: false },
         { _id: { $in: me.following } },
@@ -883,7 +883,7 @@ const getExploreLoops = async (req, res) => {
 
     const authorIds = validAuthors.map((u) => u._id);
 
-    const loops = await Loop.find({ author: { $in: authorIds } })
+    const loops = await Loop.find({ author: { $in: authorIds }})
       .select("-public_id")
       .populate("author", "username profilePicture name")
       .populate("comments.commentedBy", "username profilePicture name")
