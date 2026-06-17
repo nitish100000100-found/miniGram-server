@@ -37,12 +37,22 @@ io.use((socket, next) => {
 });
 
 io.on("connection", (socket) => {
-  userSocketMap[socket.userId] = socket.id;
+  if (!userSocketMap[socket.userId]) {
+    userSocketMap[socket.userId] = [];
+  }
+  userSocketMap[socket.userId].push(socket.id);
 
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
   socket.on("disconnect", () => {
-    delete userSocketMap[socket.userId];
+    if (userSocketMap[socket.userId]) {
+      userSocketMap[socket.userId] = userSocketMap[socket.userId].filter(
+        (id) => id !== socket.id
+      );
+      if (userSocketMap[socket.userId].length === 0) {
+        delete userSocketMap[socket.userId];
+      }
+    }
 
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
   });
