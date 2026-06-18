@@ -5,6 +5,9 @@ import cookie from "cookie";
 import app from "./app.js";
 
 const userSocketMap = {};
+export const getSocketId = (userId) => {
+    return userSocketMap[userId];
+}
 
 const server = http.createServer(app);
 

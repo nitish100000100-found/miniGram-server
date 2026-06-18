@@ -4,6 +4,8 @@ import Conversation from "../models/conversation.model.js";
 import User from "../models/user.model.js";
 import { uploadToCloudinary, cloudinary } from "../config/cloudinary.js";
 import path from "path";
+import {getSocketId,io} from "../socket.js"
+
 
 const sendMessage = async (req, res) => {
   let publicId = null;
@@ -101,6 +103,10 @@ const sendMessage = async (req, res) => {
         });
       }
     }
+    const receiverSocketId = getSocketId(receiverId);
+    if(receiverSocketId){
+      io.to(receiverSocketId).emit("newMessage", msg);
+    }
 
     await msg.save({ session });
 
@@ -167,6 +173,17 @@ const getAllMessaageBetweenTwoUsers = async (req, res) => {
       return res.status(200).json({ messages: [] });
     }
 
+    const entry = existconversation.deletedBy?.find(
+      (e) => e.userId.toString() === senderId.toString()
+    );
+
+    let messages = existconversation.messages || [];
+    if (entry) {
+      messages = messages.filter(
+        (m) => new Date(m.createdAt) > new Date(entry.deletedAt)
+      );
+    }
+
     if (
       existconversation.lastMsgSentForId?.toString() === senderId.toString() &&
       !existconversation.isSeen
@@ -175,7 +192,7 @@ const getAllMessaageBetweenTwoUsers = async (req, res) => {
       await existconversation.save();
     }
 
-    return res.status(200).json({ messages: existconversation.messages });
+    return res.status(200).json({ messages });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -203,6 +220,17 @@ const getUserChatList = async (req, res) => {
 
     const chatList = [];
     for (const conversation of conversations) {
+      const entry = conversation.deletedBy?.find(
+        (e) => e.userId.toString() === senderId.toString()
+      );
+      const lastMessage = conversation.messages[0] || null;
+
+      if (entry) {
+        if (!lastMessage || new Date(lastMessage.createdAt) <= new Date(entry.deletedAt)) {
+          continue;
+        }
+      }
+
       let otherParticipant = null;
       if (
         conversation.participants[0]?._id?.toString() === senderId.toString()
@@ -212,7 +240,6 @@ const getUserChatList = async (req, res) => {
         otherParticipant = conversation.participants[0] || null;
       }
 
-      const lastMessage = conversation.messages[0] || null;
       const glow =
         conversation.lastMsgSentForId?.toString() === senderId.toString() &&
         conversation.isSeen === false;
@@ -410,17 +437,39 @@ const deleteAllMessages = async (req, res) => {
       return res.status(404).json({ message: "Conversation not found" });
     }
 
-    const messageIds = conversation.messages;
-    const messages = await Message.find({ _id: { $in: messageIds } }).session(
-      session,
+    const now = new Date();
+    const senderEntryIndex = conversation.deletedBy.findIndex(
+      (entry) => entry.userId.toString() === senderId.toString()
     );
+    if (senderEntryIndex > -1) {
+      conversation.deletedBy[senderEntryIndex].deletedAt = now;
+    } else {
+      conversation.deletedBy.push({ userId: senderId, deletedAt: now });
+    }
 
-    const publicIds = messages
-      .filter((m) => m?.publicId)
-      .map((m) => ({ id: m.publicId, type: m?.resourceType || "image" }));
+    if (conversation.lastMsgSentForId?.toString() === senderId.toString()) {
+      conversation.isSeen = true;
+    }
 
-    await Message.deleteMany({ _id: { $in: messageIds } }).session(session);
-    await Conversation.deleteOne({ _id: conversation._id }).session(session);
+    const participantIds = conversation.participants.map((id) => id.toString());
+    const deletedByUsers = conversation.deletedBy.map((entry) => entry.userId.toString());
+    const allParticipantsDeleted = participantIds.every((id) => deletedByUsers.includes(id));
+
+    let publicIds = [];
+
+    if (allParticipantsDeleted) {
+      const messageIds = conversation.messages;
+      const messages = await Message.find({ _id: { $in: messageIds } }).session(session);
+
+      publicIds = messages
+        .filter((m) => m?.publicId)
+        .map((m) => ({ id: m.publicId, type: m?.resourceType || "image" }));
+
+      await Message.deleteMany({ _id: { $in: messageIds } }).session(session);
+      await Conversation.deleteOne({ _id: conversation._id }).session(session);
+    } else {
+      await conversation.save({ session });
+    }
 
     await session.commitTransaction();
 
