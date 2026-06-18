@@ -208,10 +208,6 @@ const getUserChatList = async (req, res) => {
       },
     })
       .populate("participants", "name username profilePicture")
-      .populate({
-        path: "messages",
-        options: { sort: { createdAt: -1 }, limit: 1 },
-      })
       .sort({ updatedAt: -1 });
 
     if (!conversations) {
@@ -223,7 +219,9 @@ const getUserChatList = async (req, res) => {
       const entry = conversation.deletedBy?.find(
         (e) => e.userId.toString() === senderId.toString()
       );
-      const lastMessage = conversation.messages[0] || null;
+      const lastMessage = await Message.findOne({
+        _id: { $in: conversation.messages }
+      }).sort({ createdAt: -1 }) || null;
 
       if (entry) {
         if (!lastMessage || new Date(lastMessage.createdAt) <= new Date(entry.deletedAt)) {
