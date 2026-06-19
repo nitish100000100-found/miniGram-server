@@ -17,10 +17,10 @@ import { upload } from "../config/cloudinary.js";
 messageRouter.post("/sendMessage/:receiverId",isAuth,upload.single("media"), sendMessage);
 messageRouter.get("/getMessages/:userId",isAuth, getAllMessaageBetweenTwoUsers);
 messageRouter.get("/getUserChatList",isAuth, getUserChatList);
-messageRouter.delete("/unsendMessage/:messageId", isAuth, unSendMessage);
+messageRouter.post("/unsendMessage/:messageId", isAuth, unSendMessage);
 messageRouter.get("/unreadCount", isAuth, getUnreadMessageCount);
 messageRouter.post("/searchUsers", isAuth, searchUsersForChat);
-messageRouter.delete("/clearChat/:userId", isAuth, deleteAllMessages);
+messageRouter.post("/clearChat/:userId", isAuth, deleteAllMessages);
 
 export default messageRouter;
 
