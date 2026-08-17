@@ -11,12 +11,14 @@ export const getSocketId = (userId) => {
 
 const server = http.createServer(app);
 
+
+
 const io = new Server(server, {
-  cors: {
-    origin: process.env.ALLOWED_ORIGINS.split(","),
-    credentials: true,
-    methods: ["GET", "POST"],
-  },
+    cors: {
+        origin: "https://mini-gram-client.vercel.app",
+        methods: ["GET", "POST"],
+        credentials: true
+    }
 });
 
 io.use((socket, next) => {
