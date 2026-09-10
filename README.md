@@ -34,8 +34,7 @@ miniGram is split into two repos:
 |---|---|---|
 | Core | Node.js, Express 5 | React 19, Vite |
 | Data | MongoDB + Mongoose | — |
-| Auth | JWT, bcryptjs, cookie-parser | — |
-| State | — | Redux Toolkit + React Redux |
+| Auth | JWT, bcryptjs, cookie-parser | LoaderFunction |
 | Routing | Express Router | React Router v7 |
 | Real-time | Socket.IO (server) | Socket.IO Client |
 | Media | Multer + Cloudinary | — |
